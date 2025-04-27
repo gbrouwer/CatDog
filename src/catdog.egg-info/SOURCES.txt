@@ -1,0 +1,7 @@
+pyproject.toml
+setup.py
+src/catdog.egg-info/PKG-INFO
+src/catdog.egg-info/SOURCES.txt
+src/catdog.egg-info/dependency_links.txt
+src/catdog.egg-info/requires.txt
+src/catdog.egg-info/top_level.txt
