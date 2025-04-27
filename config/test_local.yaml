@@ -1,0 +1,26 @@
+# configs/test_local.yaml
+
+mode: simulation
+
+device:
+  name: localpc
+  ip: 127.0.0.1
+
+connected_devices: {}
+
+modules:
+  dummy_sensor:
+    class: catdog.modules.debuggers.dummies.DummySensor
+    params:
+      host: 127.0.0.1
+      port: 9001
+      connections: []
+
+  dummy_actuator:
+    class: catdog.modules.debuggers.dummies.DummyActuator
+    params:
+      host: 127.0.0.1
+      port: 9002
+      upstream:
+        host: 127.0.0.1
+        port: 9001

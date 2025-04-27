@@ -1,0 +1,12 @@
+mode: simulation
+
+device:
+  name: geforce
+  ip: 192.168.1.100
+
+connected_devices: {}
+
+modules:
+  speaker:
+    class: catdog.modules.actuators.emitters.sounds.usbspeaker.USBSpeakerModule
+    params: {}
