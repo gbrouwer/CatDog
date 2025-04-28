@@ -1,0 +1,9 @@
+  pc_speaker:
+    class: catdog.modules.actuators.pcspeaker.PCSpeaker
+    params:
+      host: 127.0.0.1
+      port: 9003
+      upstream:
+        host: 127.0.0.1
+        port: 9001
+      sound_path: "assets/sounds/boot.wav"

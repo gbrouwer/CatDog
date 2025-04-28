@@ -1,17 +1,9 @@
-# src/catdog/modules/debuggers/dummies.py
-
-# src/catdog/modules/debuggers/dummies.py
-
 import asyncio
-import threading
 import time
 from catdog.module import Module
-from catdog.messaging.message import Message
-from catdog.messaging.receiver import Receiver
 from catdog.messaging.sender import Sender
-import asyncio
-import threading
-import time
+from catdog.messaging.receiver import Receiver
+from catdog.messaging.message import Message
 
 class DummySensor(Module):
     def __init__(self, host, port, **kwargs):
@@ -21,27 +13,27 @@ class DummySensor(Module):
         self.sender = Sender(host=self.host, port=self.port)
         self.running = False
 
-    def start(self):
+    async def start(self):
         self.running = True
-        asyncio.create_task(self.sender.start())
-        threading.Thread(target=self.loop, daemon=True).start()
+        await self.sender.start()
+        asyncio.create_task(self.loop())
 
-    def loop(self):
+    async def loop(self):
         while self.running:
             print("[DummySensor] Capturing dummy data...")
             dummy_data = {"value": 42}
             message = Message(sender="DummySensor", content=dummy_data)
-            asyncio.run(self.sender.emit(message))
-            # Optionally heartbeat sending here
-            time.sleep(1)
+            await self.sender.emit(message)
+            await asyncio.sleep(1)
+
+    async def receive(self, message):
+        print(f"[DummySensor] (Dummy) Received message: {message.content}")
 
     def selftest(self):
         print("[DummySensor] Selftest passed.")
 
-    def stop(self):
+    async def stop(self):
         self.running = False
-
-# src/catdog/modules/debuggers/dummies.py
 
 
 class DummyActuator(Module):
@@ -53,25 +45,24 @@ class DummyActuator(Module):
         self.receiver = None
         self.running = False
 
-    def start(self):
+    async def start(self):
+        self.running = True
         if self.upstream:
             address = f"ws://{self.upstream['host']}:{self.upstream['port']}"
-            self.receiver = Receiver(address, self.handle_signal)
+            self.receiver = Receiver(address, self.receive)
             asyncio.create_task(self.receiver.run())
-        self.running = True
-        threading.Thread(target=self.loop, daemon=True).start()
+        asyncio.create_task(self.loop())
 
-    async def handle_signal(self, message):
+    async def receive(self, message):
         print(f"[DummyActuator] Received: {message.content}")
-        # Optionally heartbeat receiving here
 
-    def loop(self):
+    async def loop(self):
         while self.running:
             print("[DummyActuator] Waiting for signals...")
-            time.sleep(1)
+            await asyncio.sleep(1)
 
     def selftest(self):
         print("[DummyActuator] Selftest passed.")
 
-    def stop(self):
+    async def stop(self):
         self.running = False
