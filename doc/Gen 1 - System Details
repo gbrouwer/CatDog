@@ -1,0 +1,155 @@
+# CatDog System Design and Technical Details
+
+---
+
+## 📂 Folder Structure
+
+```
+/your_project/
+├── src/
+│   ├── catdog/
+│   │   ├── agent.py
+│   │   ├── vibes.py
+│   │   └── modules/
+│   │       ├── debuggers/
+│   │       │   └── dummies.py
+│   │       └── actuators/
+│   │           └── pcspeaker.py
+│   └── catdog/launchers/
+│       └── module_launcher.py
+├── assets/
+│   └── sounds/
+│       └── boot.wav
+├── configs/
+│   └── test_local.yaml
+├── tests/
+│   └── test_pcspeaker.py
+├── setup.py
+```
+
+---
+
+## 🛠️ Major Components
+
+| Component | Description |
+|:---|:---|
+| Agent | Starts system, launches modules, monitors health. |
+| Vibe System | Broadcasts and listens to heartbeats. |
+| Sender/Receiver | WebSocket communication layer. |
+| Module Launcher | Spawns modules as subprocesses. |
+| Modules | Functional units like DummySensor and PCSpeaker. |
+
+---
+
+## 🧰 Key Classes and Responsibilities
+
+- **Agent**: Core system orchestration.
+- **VibeSender / VibeListener**: Health monitoring over time.
+- **Sender**: WebSocket server emitting messages.
+- **Receiver**: WebSocket client receiving messages.
+- **ModuleLauncher**: Dynamic module runner.
+- **DummySensor**: Periodic dummy message emitters.
+- **PCSpeaker**: Plays audio on message trigger.
+
+---
+
+## 📐 Module Lifecycle
+
+1. **boot()**: Self-test hardware or environment.
+2. **start()**: Connect or serve WebSocket.
+3. **loop()**: Main asynchronous execution loop.
+4. **stop()**: Graceful shutdown.
+
+Modules are designed to be as autonomous as possible, minimizing external dependencies.
+
+---
+
+## 📢 Messaging Model
+
+| Field | Example |
+|:---|:---|
+| sender | "DummySensor" |
+| content | { "value": 42, "play_sound": true } |
+
+**Message Flow:**
+- DummySensor sends dummy data.
+- PCSpeaker and DummyActuator receive data.
+- PCSpeaker plays sound if `play_sound: true`.
+
+---
+
+## 📅 System Configuration
+
+```yaml
+modules:
+  dummy_sensor:
+    class: catdog.modules.debuggers.dummies.DummySensor
+    params:
+      host: 127.0.0.1
+      port: 9001
+
+  dummy_actuator:
+    class: catdog.modules.debuggers.dummies.DummyActuator
+    params:
+      host: 127.0.0.1
+      port: 9002
+      upstream:
+        host: 127.0.0.1
+        port: 9001
+
+  pc_speaker:
+    class: catdog.modules.actuators.pcspeaker.PCSpeaker
+    params:
+      host: 127.0.0.1
+      port: 9003
+      upstream:
+        host: 127.0.0.1
+        port: 9001
+      sound_path: "assets/sounds/boot.wav"
+```
+
+---
+
+## 🚧 Failure Modes and Recovery
+
+- **Module Crash**: Subprocess terminates independently; Agent remains alive.
+- **No Heartbeat**: Detected by VibeListener; triggers warnings or corrective actions.
+- **Communication Loss**: WebSocket reconnection attempts (future feature).
+
+---
+
+## 📊 Scaling and Future Upgrades
+
+| Phase | Description |
+|:---|:---|
+| Phase 1 | Single-device multi-module operation (current). |
+| Phase 2 | Multi-device LAN deployments (planned). |
+| Phase 3 | Geographical cloud deployments. |
+| Phase 4 | Fully dynamic auto-scaling network. |
+
+- Add automatic module restarts on crash.
+- Introduce encrypted WebSocket communication (TLS).
+- Build a live visual dashboard for heartbeat and module status.
+
+---
+
+## 🔄 Best Practices
+
+- Modules should fail fast if not configured properly.
+- Keep message schemas lightweight and flexible.
+- Document all module parameters clearly in YAML.
+- Maintain clean async loops, avoid blocking calls.
+- Separate concerns: modules should not "know" too much about each other.
+
+---
+
+# 🏆 Final Summary
+
+CatDog represents a move away from monolithic, fragile software toward **distributed, fault-tolerant, modular systems**.
+
+By following these principles:
+- Modules become small, testable, disposable.
+- The Agent manages the forest, not the trees.
+- System health becomes visible, actionable, and maintainable.
+
+CatDog is an early glimpse into the future of **living software ecosystems**.
