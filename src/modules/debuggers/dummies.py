@@ -1,6 +1,6 @@
 import asyncio
 import time
-from module import Module
+from modules import Module
 from messaging.sender import Sender
 from messaging.receiver import Receiver
 from messaging.message import Message

@@ -1,6 +1,8 @@
 import asyncio
 import websockets
 import json
+from log import log, log_error
+from enums import ConnectionStatus
 
 class Receiver:
     def __init__(self, global_channel_url, on_message_callback, module=None):
@@ -8,13 +10,14 @@ class Receiver:
         self.on_message_callback = on_message_callback
         self.websocket = None
         self.module = module
+        self.tag = module.__class__.__name__ if module else "Receiver"
 
     async def run(self):
-        print(f"[Receiver] Connecting to Global Channel at {self.global_channel_url}")
+        log(self.tag, f"Connecting to Global Channel at {self.global_channel_url}")
         while True:
             try:
                 self.websocket = await websockets.connect(self.global_channel_url)
-                print("[Receiver] Connected.")
+                log(self.tag, "Connected.")
                 if self.module:
                     self.module.connection_status = ConnectionStatus.CONNECTED
 
@@ -23,7 +26,7 @@ class Receiver:
                     await self.on_message_callback(data)
 
             except Exception as e:
-                print(f"[Receiver] Connection error: {e}")
+                log_error(self.tag, f"Connection error: {e}")
                 if self.module:
                     self.module.connection_status = ConnectionStatus.LOST
                 await asyncio.sleep(2)

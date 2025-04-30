@@ -75,7 +75,7 @@ devices:
   pc-main:
     ip: 192.168.1.5
     modules:
-      - module: module.actuators.emitters.sounds.sound_emitter.SoundEmitter
+      - module: modules.actuators.emitters.sounds.sound_emitter.SoundEmitter
         params:
           global_channel_url: ws://192.168.1.5:9000
           upstream_data_url: ws://192.168.1.10:9100
@@ -83,7 +83,7 @@ devices:
   raspberry-pi:
     ip: 192.168.1.10
     modules:
-      - module: module.sensors.sound.ultrasonic_sensor.UltrasonicSensor
+      - module: modules.sensors.sound.ultrasonic_sensor.UltrasonicSensor
         params:
           global_channel_url: ws://192.168.1.5:9000
           data_publish_port: 9100

@@ -1,4 +1,5 @@
 import os
+from log import log
 
 class AssetManager:
     """
@@ -15,8 +16,8 @@ class AssetManager:
         Resolve one or more path parts into a full asset path.
         Example: AssetManager.resolve("sounds", "boot.wav")
         """
-        print(f"[DEBUG] Resolving asset path from __file__ = {__file__}")
-        print(f"[DEBUG] Asset base path = {cls.BASE_ASSET_PATH}")
+        log("AssetManager", f"Resolving asset path from __file__ = {__file__}")
+        log("AssetManager", f"Asset base path = {cls.BASE_ASSET_PATH}")
         return os.path.join(cls.BASE_ASSET_PATH, *path_parts)
 
     @classmethod

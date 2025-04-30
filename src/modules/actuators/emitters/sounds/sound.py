@@ -1,4 +1,4 @@
-from module.actuators.emitter import Emitter
+from modules.actuators.emitter import Emitter
 from abc import abstractmethod
 import threading
 import time

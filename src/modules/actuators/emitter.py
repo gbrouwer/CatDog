@@ -1,24 +1,24 @@
-# src/catdog/modules/actuator.py
+# src/catdog/modules/actuators/emitter.py
 
-from module.module import Module
+from modules.actuator import Actuator
 from abc import ABC, abstractmethod
 
-class Actuator(Module, ABC):
-    def __init__(self, name="actuator", interval=0.1):
+class Emitter(Actuator, ABC):
+    def __init__(self, name="emitter", interval=0.1):
         super().__init__(name, interval)
 
     @abstractmethod
-    def actuate(self, command):
+    def emit_signal(self, signal):
         """
-        Perform an action based on a command.
+        Emit a signal into the environment (light, sound, etc.).
         """
         pass
 
-    def receive(self, data):
+    def actuate(self, command):
         """
-        Default behavior when receiving data: Actuate based on it.
+        When actuating, emit the given signal.
         """
-        self.actuate(data)
+        self.emit_signal(command)
 
     def receive_global(self, message):
         """

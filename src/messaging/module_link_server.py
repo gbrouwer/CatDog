@@ -8,7 +8,7 @@ class ModuleLinkServer:
         self.host = host
         self.port = port
 
-    async def handler(self, websocket, path):
+    async def handler(self, websocket):
         print(f"[ModuleLinkServer] Client connected: {websocket.remote_address}")
         self.clients.add(websocket)
         try:
@@ -20,7 +20,7 @@ class ModuleLinkServer:
     async def start(self):
         print(f"[ModuleLinkServer] Starting on ws://{self.host}:{self.port}")
         self.server = await websockets.serve(
-            lambda ws, path: self.handler(ws, path),
+            self.handler,
             self.host,
             self.port
         )

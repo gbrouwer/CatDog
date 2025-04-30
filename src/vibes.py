@@ -1,3 +1,4 @@
+from log import log, log_error
 import asyncio
 import socket
 import json
@@ -42,9 +43,11 @@ class VibeListener:
                 self.vibe_map[device_name] = vibe
                 self.print_vibe_map()
             except Exception as e:
-                print(f"[VibeListener] Failed to decode vibe: {e}")
+                log_error("VibeListener", f"Failed to decode vibe: {e}")
 
     def print_vibe_map(self):
-        print("\n[VibeListener] Current Vibe Map:")
+        log("VibeListener", "Current Vibe Map:")
         for device, vibe in self.vibe_map.items():
-            print(f"- {device}: {vibe['health']} (uptime: {vibe['uptime']:.1f}s)")
+            status = vibe['health']
+            uptime = vibe['uptime']
+            log("VibeListener", f"{device}: {status} (uptime: {uptime:.1f}s)")

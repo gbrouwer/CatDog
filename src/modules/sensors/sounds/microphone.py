@@ -1,4 +1,4 @@
-from module.sensors.sound import SoundSensor
+from modules.sensor.sound import SoundSensor
 import numpy as np
 import threading
 import pyaudio

@@ -1,4 +1,4 @@
-from module import Module
+from modules.module import Module
 
 class Sensor(Module):
     def __init__(self, name="sensor", interval=0.1):

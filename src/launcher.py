@@ -1,8 +1,10 @@
+# launcher.py
+
+from log import log, log_error
 import argparse
 import asyncio
 import json
 import sys
-
 import importlib
 
 async def main():
@@ -15,23 +17,24 @@ async def main():
     params = json.loads(args.params) if args.params else {}
 
     module_path, class_name = module_class_path.rsplit('.', 1)
-    print(module_path)
-    print(class_name)
-    imported_module = importlib.import_module(module_path)
-    ModuleClass = getattr(imported_module, class_name)
-
-    module_instance = ModuleClass(**params)
+    log("Launcher", module_path)
+    log("Launcher", class_name)
 
     try:
+        imported_module = importlib.import_module(module_path)
+        ModuleClass = getattr(imported_module, class_name)
+
+        module_instance = ModuleClass(**params)
+
         if hasattr(module_instance, 'boot'):
             await module_instance.boot()
         await module_instance.start()
 
-        print(f"[Launcher] {class_name} started. Running indefinitely...")
+        log("Launcher", f"{class_name} started. Running indefinitely...")
         while True:
             await asyncio.sleep(1)
     except Exception as e:
-        print(f"[Launcher] Module {class_name} crashed with exception: {e}")
+        log_error("Launcher", f"Module {class_name} crashed with exception: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
