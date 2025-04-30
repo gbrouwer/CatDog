@@ -5,3 +5,7 @@ class HeartbeatStatus(Enum):
     OPERATIONAL = "operational"
     PROCESSING = "processing"
     ERROR = "error"
+
+class ConnectionStatus(Enum):
+    CONNECTED = "connected"
+    LOST = "connection_lost"

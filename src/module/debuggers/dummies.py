@@ -1,9 +1,9 @@
 import asyncio
 import time
-module import Module
-messaging.sender import Sender
-messaging.receiver import Receiver
-messaging.message import Message
+from module import Module
+from messaging.sender import Sender
+from messaging.receiver import Receiver
+from messaging.message import Message
 import asyncio
 
 class DummySensor(Module):

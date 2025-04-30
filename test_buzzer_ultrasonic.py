@@ -1,4 +1,4 @@
-from from module.actuators.emitters.sounds import Buzzer
+from module.actuators.emitters.sounds import Buzzer
 from module.sensors.sounds import UltraSonic
 
 # Example test runner

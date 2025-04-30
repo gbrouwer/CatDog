@@ -1,0 +1,27 @@
+devices:
+  GeForce-Watertoren:
+    ssh_user: gbrouwer
+    ip: 192.168.178.237
+    agent_path: C:\Core\Dev\CatDog\src\agent.py
+    config_path: C:\Core\Dev\CatDog\configs/catdog_test.yaml
+    venv_activate_path: None
+    modules:
+      - module: module.actuators.emitters.sounds.sound_emitter.SoundEmitter
+        params:
+          global_channel_url: ws://192.168.178.237:9000
+          upstream_data_url: ws://192.168.178.80:9100
+
+  MrsRainbow:
+    ip: 192.168.178.80
+    agent_path: /home/gbrouwer/CatDog/src/agent.py
+    config_path: /home/gbrouwer/CatDog/configs/catdog_test.yaml
+    venv_activate_path: /home/gbrouwer/CatDog/.venv/bin/activate
+    modules:
+      - module: module.sensors.sound.ultrasonic_sensor.UltrasonicSensor
+        params:
+          global_channel_url: ws://192.168.178.237:9000
+          data_publish_port: 9100
+
+global_channel:
+  host: 0.0.0.0
+  port: 9000

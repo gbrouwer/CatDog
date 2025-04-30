@@ -1,5 +1,3 @@
-# src/messaging/sender.py
-
 import asyncio
 import websockets
 import json
@@ -10,26 +8,17 @@ class Sender:
         self.websocket = None
 
     async def connect(self):
-        """Connects to the Global Communication Channel."""
         print(f"[Sender] Connecting to Global Channel at {self.global_channel_url}")
         self.websocket = await websockets.connect(self.global_channel_url)
-        print(f"[Sender] Connected successfully.")
+        print("[Sender] Connected.")
 
     async def send(self, message):
-        """Sends a message over the WebSocket connection."""
         if self.websocket is None:
-            raise RuntimeError("[Sender] WebSocket connection not established. Call connect() first.")
-
-        if hasattr(message, 'content'):
-            payload = message.content
-        else:
-            payload = message  # If it's already a dictionary
-
+            raise RuntimeError("[Sender] Call connect() before sending.")
+        payload = message.content if hasattr(message, 'content') else message
         await self.websocket.send(json.dumps(payload))
-        print(f"[Sender] Sent message: {payload}")
+        print(f"[Sender] Sent: {payload}")
 
     async def close(self):
-        """Closes the WebSocket connection cleanly."""
-        if self.websocket is not None:
+        if self.websocket:
             await self.websocket.close()
-            print(f"[Sender] Connection closed.")

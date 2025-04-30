@@ -1,0 +1,10 @@
+gpiozero==2.0.1
+numpy==2.2.5
+PyAudio==0.2.14
+pytest==8.3.5
+PyYAML==6.0.2
+PyYAML==6.0.2
+setuptools==80.0.0
+sounddevice==0.5.1
+soundfile==0.13.1
+websockets==15.0.1

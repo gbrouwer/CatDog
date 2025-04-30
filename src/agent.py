@@ -1,3 +1,5 @@
+# agent.py (patched for MVP goals)
+
 import yaml
 import asyncio
 import platform
@@ -7,8 +9,8 @@ import subprocess
 import shlex
 import os
 import json
+import socket
 from vibes import VibeSender, VibeListener
-
 
 class Agent:
     HEARTBEAT_TIMEOUT = 10  # seconds
@@ -17,181 +19,178 @@ class Agent:
     def __init__(self, config_path, is_primary=False):
         self.config_path = config_path
         self.is_primary = is_primary
-        self.mode = None
         self.device_name = None
-        self.ip_self = None
-        self.connected_devices = {}
-        self.modules = {}  # {module_name: subprocess handle}
-        self.last_heartbeats = {}  # {module_name: (timestamp, status)}
+        self.ip_self = self.get_own_ip()
         self.config = {}
+        self.modules = {}
+        self.connected_devices = {}
+        self.last_heartbeats = {}
         self.start_time = time.time()
-
+        self.gcc_process = None
+        self.agent_processes = []
         self.load_config()
         self.setup_environment()
-        self.build_modules()
+
+    def get_own_ip(self):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(('8.8.8.8', 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return '127.0.0.1'
 
     def load_config(self):
-        with open(self.config_path, 'r') as file:
-            self.config = yaml.safe_load(file)
-        self.mode = self.config.get('mode', 'simulation')
-        device_info = self.config.get('device', {})
-        self.device_name = device_info.get('name', 'unknown')
-        self.ip_self = device_info.get('ip', '127.0.0.1')
-        self.connected_devices = self.config.get('connected_devices', {})
+        try:
+            with open(self.config_path, 'r') as file:
+                config = yaml.safe_load(file)
+            self.config = config              # <<< ADD THIS LINE
+            self.devices = config.get('devices', {})
+            print(f"[Agent] Loaded devices: {list(self.devices.keys())}")
+        except Exception as e:
+            print(f"[Agent] ERROR while loading config: {e}")
+            raise
 
     def setup_environment(self):
-        self.kill_old_python_processes()
         system = platform.system()
-        if self.mode == 'live' and system != 'Linux':
-            print("[Agent] Warning: Live mode recommended for Linux (e.g., Raspberry Pi).")
-        print(f"[Agent] Running in {self.mode.upper()} mode on {system}.")
+        if self.is_primary and system != 'Linux' and system != 'Windows':
+            print("[Agent] Warning: Primary agent recommended on Linux or Windows.")
+        print(f"[Agent] Running on {system} at {self.ip_self}")
 
-    def kill_old_python_processes(self):
-        print("[Agent] Checking for old Python processes...")
+    def start_gcc_server(self):
+        print("[Agent] Starting GCC server...")
         try:
-            result = subprocess.run(["tasklist", "/FI", "IMAGENAME eq python.exe"], capture_output=True, text=True)
-            if "python.exe" in result.stdout:
-                print("[Agent] Found old python.exe process(es), attempting to clean up...")
-                subprocess.run(["taskkill", "/F", "/IM", "python.exe"])
-                print("[Agent] Old Python processes killed.")
+            gcc_script = os.path.join(os.path.dirname(__file__), 'gcc.py')
+
+            # Use venv Python on Windows, system Python elsewhere
+            if platform.system() == "Windows":
+                venv_python = os.path.join(os.path.dirname(__file__), '..', '.venv', 'Scripts', 'python.exe')
+                python_exe = venv_python
             else:
-                print("[Agent] No old Python processes found.")
+                python_exe = "python3"
+
+            print(f"[Agent] Using Python executable: {python_exe}")
+            self.gcc_process = subprocess.Popen([
+                python_exe, gcc_script
+            ], cwd=os.path.dirname(__file__))
+
+            if self.gcc_process is not None:
+                print(f"[Agent:{self.ip_self}] GCC subprocess launched: PID={self.gcc_process.pid}")
+            else:
+                print("[Agent] GCC launch failed: subprocess returned None")
         except Exception as e:
-            print(f"[Agent] Error during process cleanup: {e}")
+            print(f"[Agent] Failed to start GCC: {e}")
+            self.gcc_process = None
 
-    def build_modules(self):
-        print("[Agent] Spawning modules as subprocesses...")
-        for module_name, module_info in self.config.get('modules', {}).items():
-            module_class_path = module_info['class']
-            params = module_info.get('params', {})
-            self.spawn_module_process(module_name, module_class_path, params)
-            self.last_heartbeats[module_name] = (time.time(), 'unknown')
+    async def start(self):
+        print(f"[Agent:{self.ip_self}] Starting agent (is_primary={self.is_primary})...")
+        if self.is_primary:
+            self.start_gcc_server()
 
-    def spawn_module_process(self, module_name, module_class_path, params):
+        await self.spawn_local_modules()
+
+        if self.is_primary:
+            await self.launch_remote_agents()
+
+        await self.start_vibe_system()
+        asyncio.create_task(self.monitor_heartbeats())
+
+        print("[Agent] System operational.")
+
+    async def spawn_local_modules(self):
+        print("[Agent] Spawning local modules...")
+        for device_name, device_info in self.config.get('devices', {}).items():
+            if device_info.get('ip') == self.ip_self:
+                for module in device_info.get('modules', []):
+                    await self.spawn_module(module['module'], module.get('params', {}))
+
+    async def spawn_module(self, module_class_path, params):
         launcher_script = os.path.join(os.path.dirname(__file__), 'launcher.py')
-
         command = [
-            "python3",
+            "python",
             launcher_script,
             "--module", module_class_path,
             "--params", json.dumps(params)
         ]
-
-        print(f"[Agent] Launching module '{module_name}' with command: {' '.join(shlex.quote(arg) for arg in command)}")
-
+        print(f"[Agent] Launching module with command: {' '.join(shlex.quote(arg) for arg in command)}")
         try:
-            # Copy current environment and add PYTHONPATH pointing to the src folder
             env = os.environ.copy()
             src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
             env["PYTHONPATH"] = src_path
-
-            # Set working directory to src/
-            process = subprocess.Popen(
-                command,
-                cwd=os.path.abspath(os.path.dirname(__file__)),  # This is /src
-                env=env
-            )
-            self.modules[module_name] = process
+            process = subprocess.Popen(command, cwd=os.path.dirname(__file__), env=env)
+            self.modules[module_class_path] = process
+            self.last_heartbeats[module_class_path] = (time.time(), 'unknown')
         except Exception as e:
-            print(f"[Agent] Failed to launch module {module_name}: {e}")
+            print(f"[Agent] Failed to launch module {module_class_path}: {e}")
 
-    async def start(self):
-        if self.is_primary:
-            self.launch_ephemeral_agents()
+    async def launch_remote_agents(self):
+        print("[Agent] Launching remote agents...")
+        for device_name, device_info in self.devices.items():
+            if device_info.get('ip') != self.ip_self:
+                ip = device_info['ip']
+                agent_path = device_info['agent_path']
+                config_path = device_info['config_path']
+                # venv_activate = device_info.get('venv_activate_path')
 
-        await self.await_heartbeats(expected_status="online")
-        self.test_modules()
-        await self.await_heartbeats(expected_status=["connected", "receiving", "sending"])
-        await self.enter_operational_mode()
+                # # Build the remote python command
+                # if venv_activate and venv_activate.lower() != 'none':
+                # remote_python_command = f"bash -c 'source {venv_activate} && python {device_info['agent_path']} --config {device_info['config_path']}'"
+                # else:
+                
+                remote_python_command = f"/usr/bin/python {device_info['agent_path']} --config {device_info['config_path']}"
+                remote_command = f"tmux new-session -d -s catdog_agent {remote_python_command}"
+                print(remote_command)
 
-    def launch_ephemeral_agents(self):
-        print("[Agent] Launching ephemeral agents...")
-        for device_name, device_ip in self.connected_devices.items():
-            if device_name != self.device_name:
-                print(f"[Agent] Launching ephemeral agent on {device_name} at {device_ip}")
+                ssh_user = device_info.get('ssh_user', 'gbrouwer')  # Default fallback
+                ssh_command = ["ssh", f"{ssh_user}@{device_info['ip']}", remote_command]
+                print(f"[Agent] Launching remote agent on {ip} with tmux...")
                 try:
-                    subprocess.Popen(["ssh", f"{device_ip}", "python3 /path/to/agent.py --config /path/to/config.yaml"])
+                    proc = subprocess.Popen(ssh_command)
+                    self.agent_processes.append(proc)
                 except Exception as e:
-                    print(f"[Agent] Failed to launch ephemeral agent on {device_ip}: {e}")
-
-    async def await_heartbeats(self, expected_status, timeout=10):
-        print(f"[Agent] Waiting for heartbeats with status: {expected_status}")
-        expected_statuses = expected_status if isinstance(expected_status, list) else [expected_status]
-        start_time = time.time()
-
-        while time.time() - start_time < timeout:
-            all_ok = True
-            for name, (last_time, status) in self.last_heartbeats.items():
-                if status not in expected_statuses:
-                    all_ok = False
-                    break
-            if all_ok:
-                print("[Agent] All modules have reported expected status.")
-                return
-            await asyncio.sleep(1)
-
-        print("[Agent] ERROR: Timeout waiting for module heartbeats!")
-        await self.stop()
-        raise RuntimeError("Agent startup failed due to missing heartbeats.")
-
-    def test_modules(self):
-        print("[Agent] Running module self-tests...")
-        for name in self.modules.keys():
-            print(f"[Agent] (Placeholder) Self-test for module {name}")
-            # Self-test should probably move inside the individual modules themselves.
-
-    async def enter_operational_mode(self):
-        asyncio.create_task(self.monitor_heartbeats())
-        asyncio.create_task(self.start_vibe_system())
-        print("[Agent] System is now operational.")
+                    print(f"[Agent] Failed to launch remote agent on {ip}: {e}")
 
     async def start_vibe_system(self):
-        vibe_sender = VibeSender(self.device_name, self.get_health_snapshot)
+        vibe_sender = VibeSender(platform.node(), self.get_health_snapshot)
         vibe_listener = VibeListener()
         await asyncio.gather(vibe_sender.start(), vibe_listener.start())
 
     def get_health_snapshot(self):
-        return {module_name: status for module_name, (timestamp, status) in self.last_heartbeats.items()} | {"start_time": self.start_time}
+        return {module: status for module, (timestamp, status) in self.last_heartbeats.items()} | {"start_time": self.start_time}
 
     async def monitor_heartbeats(self):
-        print("[Agent] Heartbeat monitoring started.")
+        print("[Agent] Heartbeat monitor started.")
         while True:
             current_time = time.time()
-            for name, (last_time, status) in self.last_heartbeats.items():
+            for module_name, (last_time, status) in self.last_heartbeats.items():
                 if current_time - last_time > self.HEARTBEAT_TIMEOUT:
-                    print(f"[Agent] WARNING: No heartbeat from {name}!")
-            for name, process in self.modules.items():
-                if process.poll() is not None:
-                    print(f"[Agent] ERROR: Module process {name} has crashed!")
+                    print(f"[Agent] WARNING: Module {module_name} missed heartbeat!")
             await asyncio.sleep(self.HEARTBEAT_CHECK_INTERVAL)
 
-    def update_heartbeat(self, module_name, status):
-        self.last_heartbeats[module_name] = (time.time(), status)
-
     async def stop(self):
-        print("[Agent] Stopping all modules...")
-        for name, process in self.modules.items():
+        print("[Agent] Shutting down...")
+        for module, process in self.modules.items():
             if process.poll() is None:
-                print(f"[Agent] Terminating module {name}...")
                 process.terminate()
-        await asyncio.sleep(2)  # Give processes time to shutdown
+        if self.gcc_process and self.gcc_process.poll() is None:
+            self.gcc_process.terminate()
+        await asyncio.sleep(2)
 
 
 async def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True, help="Path to the config YAML file.")
-    parser.add_argument("--primary", action="store_true", help="Is this the primary agent?")
+    parser.add_argument("--config", required=True, help="Path to config file.")
+    parser.add_argument("--primary", action="store_true", help="Run as primary agent.")
     args = parser.parse_args()
 
     agent = Agent(config_path=args.config, is_primary=args.primary)
     await agent.start()
 
     try:
-        print("[Agent] Running. Press Ctrl+C to exit.")
         while True:
             await asyncio.sleep(1)
     except KeyboardInterrupt:
-        print("[Agent] Shutting down...")
         await agent.stop()
 
 
